@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-server
+spec:
+  minReadySeconds: 0
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: echo-server
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - echo-server
+            topologyKey: kubernetes.io/hostname
+      initContainers: []
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: echo-server
+        image: hashicorp/http-echo:0.2.3
+        args: ["-text=\"Hello World\""]
+        ports: 
+        - containerPort: 5678
+        env:
+        - name: SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name        
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace        
+        resources:
+          limits:
+            memory: 150M
+          requests:
+            cpu: '0.2'
+        readinessProbe:
+          httpGet:
+            httpHeaders:
+            - name: CheckType
+              value: readiness
+            path: /
+            port: 5678
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          timeoutSeconds: 9
+        livenessProbe:
+          httpGet:
+            httpHeaders:
+            - name: CheckType
+              value: liveness
+            path: /
+            port: 5678
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+  selector:
+    matchLabels:
+      app: echo-server
